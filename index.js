@@ -62,6 +62,15 @@ if (!fs.existsSync(authDir)) {
   app.use(cors());
   app.use(express.json());
 
+  // Health check endpoint
+  app.get("/", (req, res) => {
+    res.json({
+      status: "OK",
+      message: "WhatsApp Bot is running",
+      timestamp: new Date().toISOString(),
+    });
+  });
+
   app.post("/send-message", async (req, res) => {
     const { to, name, amount } = req.body;
 
