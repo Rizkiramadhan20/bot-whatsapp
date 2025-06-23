@@ -89,6 +89,39 @@ if (!fs.existsSync(authDir)) {
     }
   });
 
+  app.post("/send", async (req, res) => {
+    const { to, message } = req.body;
+
+    if (!to || !message) {
+      return res
+        .status(400)
+        .json({ error: "Missing fields: 'to' and 'message' are required." });
+    }
+
+    try {
+      const jid = to.endsWith("@s.whatsapp.net") ? to : `${to}@s.whatsapp.net`;
+      const [result] = await sock.onWhatsApp(jid);
+
+      if (result?.exists) {
+        await sock.sendMessage(jid, { text: message });
+        return res.json({
+          success: true,
+          message: "Message sent successfully.",
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: "The recipient number is not on WhatsApp.",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      return res
+        .status(500)
+        .json({ success: false, error: "An unexpected error occurred." });
+    }
+  });
+
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
     console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
