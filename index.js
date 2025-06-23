@@ -90,39 +90,59 @@ if (!fs.existsSync(authDir)) {
   });
 
   app.post("/send", async (req, res) => {
-    const { to, message } = req.body;
-
-    if (!to || !message) {
-      return res
-        .status(400)
-        .json({ error: "Missing fields: 'to' and 'message' are required." });
-    }
-
     try {
-      const jid = to.endsWith("@s.whatsapp.net") ? to : `${to}@s.whatsapp.net`;
-      const [result] = await sock.onWhatsApp(jid);
-
-      if (result?.exists) {
-        await sock.sendMessage(jid, { text: message });
-        return res.json({
-          success: true,
-          message: "Message sent successfully.",
-        });
-      } else {
+      const { to, message } = req.body;
+      if (!to || !message) {
         return res.status(400).json({
           success: false,
-          error: "The recipient number is not on WhatsApp.",
+          error: "Missing fields: 'to' and 'message' are required.",
         });
+      }
+
+      // Fungsi bantu untuk kirim pesan ke satu nomor
+      const sendToOne = async (number) => {
+        const jid = number.endsWith("@s.whatsapp.net")
+          ? number
+          : `${number}@s.whatsapp.net`;
+        const [result] = await sock.onWhatsApp(jid);
+        if (result?.exists) {
+          await sock.sendMessage(jid, { text: message });
+          return {
+            to: number,
+            success: true,
+            message: "Message sent successfully.",
+          };
+        } else {
+          return {
+            to: number,
+            success: false,
+            error: "The recipient number is not on WhatsApp.",
+          };
+        }
+      };
+
+      if (Array.isArray(to)) {
+        // Kirim ke banyak nomor
+        const results = await Promise.all(to.map(sendToOne));
+        return res.json({ results });
+      } else {
+        // Kirim ke satu nomor
+        const result = await sendToOne(to);
+        if (result.success) {
+          return res.json(result);
+        } else {
+          return res.status(400).json(result);
+        }
       }
     } catch (error) {
       console.error("Failed to send message:", error);
       return res
         .status(500)
-        .json({ success: false, error: "An unexpected error occurred." });
+        .json({ success: false, error: error.message || String(error) });
     }
   });
 
-  const PORT = process.env.PORT || 3000;
+  const PORT = process.env.PORT || 3001;
   app.listen(PORT, () => {
     console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
   });
